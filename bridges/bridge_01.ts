@@ -1,8 +1,8 @@
-import { OpenMultiAgent } from './src/index.js'
-import type { AgentConfig } from './src/types.js'
+import { OpenMultiAgent } from '../src/index.js'
+import type { AgentConfig } from '../src/types.js'
 
-const API_KEY = 'cr-a657e8b5e8d4452081a32714cad03823';
-const BASE_URL = 'https://costr.gopluslabs.io/v1';
+const API_KEY = process.env.GOPLUS_API_KEY || '';
+const BASE_URL = process.env.GOPLUS_BASE_URL || 'https://costr.gopluslabs.io/v1';
 
 const writer: AgentConfig = {
   name: 'specialist',
@@ -30,6 +30,11 @@ const team = orchestrator.createTeam('arch-01-team', {
 const prompt = process.argv.slice(2).join(' ');
 
 async function main() {
+  if (!API_KEY) {
+    console.log(JSON.stringify({ status: "error", summary: "GOPLUS_API_KEY is not set." }));
+    return;
+  }
+
   const start = Date.now();
   const result = await orchestrator.runTeam(team, prompt);
   const end = Date.now();
@@ -42,7 +47,7 @@ async function main() {
       tokens: result.totalTokenUsage,
       latency: `${(end - start) / 1000}s`
     },
-    memory_proposals: [] // 预留给未来记忆建议
+    memory_proposals: []
   };
 
   console.log(JSON.stringify(output, null, 2));

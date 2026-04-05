@@ -17,3 +17,8 @@ Agent Commander 是 OpenClaw 的多核编排引擎。它允许系统根据用户
 ## 安全提示
 - 并行核（小鹿）会消耗更多输入 Token 以换取逻辑严密性。
 - 所有执行动作均在 OpenClaw 沙盒内完成。
+
+## 环境变量配置
+使用本 Skill 前，请确保在系统中设置了以下环境变量：
+- `GOPLUS_API_KEY`: 你的 GoPlus CostRouter API Key。
+- `GOPLUS_BASE_URL`: (可选) API 基础路径，默认为 https://costr.gopluslabs.io/v1。

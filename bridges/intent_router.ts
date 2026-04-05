@@ -1,18 +1,18 @@
 import { OpenAI } from 'openai';
 
-const API_KEY = 'cr-a657e8b5e8d4452081a32714cad03823';
-const BASE_URL = 'https://costr.gopluslabs.io/v1';
+const API_KEY = process.env.GOPLUS_API_KEY || '';
+const BASE_URL = process.env.GOPLUS_BASE_URL || 'https://costr.gopluslabs.io/v1';
 
 const client = new OpenAI({ apiKey: API_KEY, baseURL: BASE_URL });
 
 export async function routeIntent(prompt: string): Promise<string> {
-  // L1: 启发式快路径 (Heuristic Fast Path)
+  if (!API_KEY) return '架构o';
+
   const simpleKeywords = ['查', '搜', '天气', '几点', '你好', '读'];
   if (prompt.length < 15 && simpleKeywords.some(kw => prompt.includes(kw))) {
     return '架构o';
   }
 
-  // L2: 极速语义分拣 (Fast-LLM Routing)
   try {
     const response = await client.chat.completions.create({
       model: 'google/gemini-3-flash-preview',
@@ -30,14 +30,6 @@ export async function routeIntent(prompt: string): Promise<string> {
     if (tag?.includes('[PAR]')) return '架构01';
     return '架构o';
   } catch (e) {
-    return '架构o'; // 降级回默认架构
+    return '架构o';
   }
-}
-
-// 模拟入口
-const input = process.argv.slice(2).join(' ');
-if (input) {
-  routeIntent(input).then(arch => {
-    console.log(arch);
-  });
 }
