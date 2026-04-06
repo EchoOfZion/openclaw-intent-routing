@@ -18,7 +18,7 @@ This leads to three direct consequences:
 
 | Scenario | What happens | What should happen |
 |----------|-------------|-------------------|
-| User says "Hello" | Opus processes it, seconds of latency, heavy token cost | Haiku responds instantly, near-zero cost |
+| User says "Hello" | Opus processes it, seconds of latency, heavy token cost | Lightweight model responds instantly, near-zero cost |
 | User says "Translate this" | Full harness pipeline | Fast model returns directly |
 | User says "Design the schema, then build the API, then write tests" | Single agent, serial execution, limited quality | Multi-agent parallel collaboration |
 
@@ -58,7 +58,7 @@ Once the environment is ready, before each message reaches a harness, the plugin
 
 ```
 User message → Intent classification (local < 1ms) → Routing decision
-                                                      ├─ Simple → Fast model (Haiku)
+                                                      ├─ Simple → Lightweight model (configurable)
                                                       ├─ Complex → AIO sandbox / Multi-agent
                                                       └─ Default → Original binding route (unchanged)
 ```
@@ -156,7 +156,7 @@ To disable: set `enabled: false`. Zero side effects.
 │  16 built-in + custom rules │
 └───────┬────────────────────┘
         │
-        ├─ simple ──→ Model override (Haiku) ──→ Fast response
+        ├─ simple ──→ Model override (configurable) ──→ Fast response
         │
         ├─ complex ─→ AIO Sandbox ──→ open-multi-agent ──→ Multi-agent collaboration
         │                 │
@@ -282,7 +282,7 @@ The plugin auto-detects your Docker environment:
 }
 ```
 
-Simple task routing (Haiku model override) works without Docker — it only needs Docker when routing complex tasks to AIO sandbox.
+Simple task routing (model override) works without Docker — it only needs Docker when routing complex tasks to AIO sandbox.
 
 ---
 
@@ -316,7 +316,7 @@ OpenClaw 生态已经有了大量优秀的 Harness —— Claude Code、Codex、
 
 | 场景 | 发生了什么 | 本该怎样 |
 |------|-----------|---------|
-| 用户说 "你好" | Opus 处理，数秒响应，消耗大量 token | Haiku 毫秒级返回，几乎零成本 |
+| 用户说 "你好" | Opus 处理，数秒响应，消耗大量 token | 轻量模型毫秒级返回，几乎零成本 |
 | 用户说 "翻译这段话" | 完整 Harness 流程 | 快速模型直接完成 |
 | 用户说 "先设计 schema，再写 API，最后写测试" | 单 Agent 串行处理，质量受限 | 多 Agent 并行协作，各司其职 |
 
@@ -356,7 +356,7 @@ OpenClaw 生态已经有了大量优秀的 Harness —— Claude Code、Codex、
 
 ```
 用户消息 → 意图分类（本地 < 1ms）→ 路由决策
-                                     ├─ 简单 → 快速模型（Haiku）
+                                     ├─ 简单 → 轻量模型（可配置）
                                      ├─ 复杂 → AIO 沙箱 / 多 Agent 协作
                                      └─ 常规 → 原有 binding 路由不变
 ```
@@ -454,7 +454,7 @@ npm test
 │  16 条内置规则 + 自定义     │
 └──────┬───────────────────┘
        │
-       ├─ simple ──→ 模型覆盖（Haiku）──→ 快速返回
+       ├─ simple ──→ 模型覆盖（可配置）──→ 快速返回
        │
        ├─ complex ─→ AIO 沙箱 ──→ open-multi-agent ──→ 多 Agent 协作
        │                │
@@ -580,7 +580,7 @@ npx tsx src/integration-test.ts [baseUrl]
 }
 ```
 
-简单任务路由（Haiku 模型切换）完全不需要 Docker —— 只有复杂任务路由到 AIO 沙箱时才需要。
+简单任务路由（模型切换）完全不需要 Docker —— 只有复杂任务路由到 AIO 沙箱时才需要。
 
 ---
 
