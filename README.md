@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" width="280" />
+</p>
+
 # OpenClaw Intent Routing
 
 **Stop using one brain for every task.**
@@ -266,6 +270,10 @@ Rules are evaluated by `priority` (ascending). First rule where all matchers pas
 ---
 
 ---
+
+<p align="center">
+  <img src="assets/logo.png" width="280" />
+</p>
 
 # OpenClaw Intent Routing
 
