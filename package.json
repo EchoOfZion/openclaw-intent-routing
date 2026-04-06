@@ -1,15 +1,44 @@
 {
   "name": "@openclaw/intent-routing",
   "version": "0.1.0",
-  "description": "Intent-based automatic routing for OpenClaw — classifies message complexity and routes to appropriate agents/execution modes",
+  "description": "Intent-based automatic routing plugin for OpenClaw — classifies message complexity using local heuristics (zero LLM calls) and routes complex tasks to open-multi-agent running in AIO sandbox",
   "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "openclaw.plugin.json",
+    "skills"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "intent-routing",
+    "multi-agent",
+    "aio-sandbox"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EchoOfZion/openclaw-intent-routing.git"
+  },
+  "openclaw": {
+    "extensions": ["./index.ts"],
+    "compat": {
+      "pluginApi": ">=2026.3.24-beta.2"
+    }
   },
   "devDependencies": {
+    "@types/node": "^25.5.2",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   }

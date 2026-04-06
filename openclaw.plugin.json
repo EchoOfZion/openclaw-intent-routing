@@ -1,0 +1,112 @@
+{
+  "id": "intent-routing",
+  "name": "Intent Routing",
+  "description": "Classifies message complexity using local heuristics (zero LLM calls) and routes complex multi-step tasks to open-multi-agent running in AIO sandbox. Simple messages stay on the default fast model.",
+  "version": "0.1.0",
+  "enabledByDefault": false,
+  "skills": ["./skills"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true
+      },
+      "aioSandbox": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "baseUrl": {
+            "type": "string",
+            "minLength": 1,
+            "default": "http://localhost:8330"
+          },
+          "dockerImage": {
+            "type": "string",
+            "minLength": 1,
+            "default": "agent-infra/aio-sandbox:latest"
+          },
+          "autoStart": {
+            "type": "boolean",
+            "default": true
+          },
+          "containerName": {
+            "type": "string",
+            "minLength": 1,
+            "default": "openclaw-aio-sandbox"
+          },
+          "ports": {
+            "type": "object",
+            "properties": {
+              "api": { "type": "number", "default": 8330 },
+              "vnc": { "type": "number", "default": 5900 },
+              "vscode": { "type": "number", "default": 18080 }
+            }
+          }
+        }
+      },
+      "openMultiAgent": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "repoUrl": {
+            "type": "string",
+            "default": "https://github.com/JackChen-me/open-multi-agent.git"
+          },
+          "branch": {
+            "type": "string",
+            "default": "main"
+          },
+          "installPath": {
+            "type": "string",
+            "default": "/workspace/open-multi-agent"
+          }
+        }
+      },
+      "routing": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "complexAgentId": {
+            "type": "string",
+            "default": "open-multi-agent"
+          },
+          "simpleModelOverride": {
+            "type": "string",
+            "default": "claude-3-5-haiku-20241022"
+          },
+          "customRules": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    }
+  },
+  "uiHints": {
+    "enabled": {
+      "label": "Enable Intent Routing",
+      "help": "Master switch for intent-based routing. When disabled, all messages use default routing."
+    },
+    "aioSandbox.baseUrl": {
+      "label": "AIO Sandbox URL",
+      "help": "Base URL for the AIO sandbox REST API."
+    },
+    "aioSandbox.autoStart": {
+      "label": "Auto-Start Sandbox",
+      "help": "Automatically start the AIO sandbox Docker container if not running."
+    },
+    "routing.complexAgentId": {
+      "label": "Complex Task Agent",
+      "help": "Agent ID to route complex multi-step tasks to (runs in AIO sandbox)."
+    },
+    "routing.simpleModelOverride": {
+      "label": "Simple Message Model",
+      "help": "Model override for simple messages (faster, cheaper). Leave empty for default.",
+      "advanced": true
+    }
+  }
+}
