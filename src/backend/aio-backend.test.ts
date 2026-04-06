@@ -99,7 +99,7 @@ describe('AioOmaRuntime', () => {
       const installer = createMockInstaller()
       const runtime = new AioOmaRuntime(sandbox, installer)
 
-      await expect(runtime.probeAvailability()).rejects.toThrow('auto-start failed')
+      await expect(runtime.probeAvailability()).rejects.toThrow('auto-start is disabled')
       expect(runtime.isHealthy()).toBe(false)
     })
 

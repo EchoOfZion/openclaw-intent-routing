@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { AioSandboxManager, DEFAULT_AIO_CONFIG } from './aio-manager.js'
-import type { AioSandboxConfig } from './aio-manager.js'
+import type { AioSandboxConfig, DockerStatus } from './aio-manager.js'
 
 // ---------------------------------------------------------------------------
 // Mock fetch globally for sandbox API tests
@@ -215,6 +215,166 @@ describe('AioSandboxManager', () => {
       // The key assertion is that isHealthy becomes false
       await mgr.stop().catch(() => {})
       expect(mgr.isHealthy).toBe(false)
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // isLocalSandbox
+  // -------------------------------------------------------------------------
+
+  describe('isLocalSandbox', () => {
+    it('returns true for localhost', () => {
+      const mgr = new AioSandboxManager({ baseUrl: 'http://localhost:8330' })
+      expect(mgr.isLocalSandbox).toBe(true)
+    })
+
+    it('returns true for 127.0.0.1', () => {
+      const mgr = new AioSandboxManager({ baseUrl: 'http://127.0.0.1:8330' })
+      expect(mgr.isLocalSandbox).toBe(true)
+    })
+
+    it('returns false for remote host', () => {
+      const mgr = new AioSandboxManager({ baseUrl: 'http://47.79.85.40:8330' })
+      expect(mgr.isLocalSandbox).toBe(false)
+    })
+
+    it('returns false for hostname', () => {
+      const mgr = new AioSandboxManager({ baseUrl: 'http://my-server.example.com:8330' })
+      expect(mgr.isLocalSandbox).toBe(false)
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // Docker detection
+  // -------------------------------------------------------------------------
+
+  describe('checkDocker', () => {
+    it('returns available when docker info succeeds', async () => {
+      const mgr = new AioSandboxManager()
+      // checkDocker calls execHostWithOutput('docker', ['info']) internally.
+      // We test by mocking the private method via prototype.
+      const spy = vi.spyOn(mgr as any, 'execHostWithOutput').mockResolvedValueOnce('Docker version 24.0.0')
+
+      const status = await mgr.checkDocker()
+      expect(status.available).toBe(true)
+      expect(status.error).toBeUndefined()
+      expect(spy).toHaveBeenCalledWith('docker', ['info'])
+    })
+
+    it('detects Docker not installed (ENOENT)', async () => {
+      const mgr = new AioSandboxManager()
+      vi.spyOn(mgr as any, 'execHostWithOutput').mockRejectedValueOnce(
+        new Error('spawn docker ENOENT'),
+      )
+
+      const status = await mgr.checkDocker()
+      expect(status.available).toBe(false)
+      expect(status.error).toContain('Docker is not installed')
+      expect(status.error).toContain('https://docs.docker.com/get-docker/')
+      expect(status.error).toContain('remote AIO sandbox')
+    })
+
+    it('detects Docker daemon not running', async () => {
+      const mgr = new AioSandboxManager()
+      vi.spyOn(mgr as any, 'execHostWithOutput').mockRejectedValueOnce(
+        new Error('Cannot connect to the Docker daemon. Is the docker daemon running?'),
+      )
+
+      const status = await mgr.checkDocker()
+      expect(status.available).toBe(false)
+      expect(status.error).toContain('daemon is not running')
+      expect(status.error).toContain('sudo systemctl start docker')
+      expect(status.error).toContain('remote AIO sandbox')
+    })
+
+    it('handles unknown Docker errors', async () => {
+      const mgr = new AioSandboxManager()
+      vi.spyOn(mgr as any, 'execHostWithOutput').mockRejectedValueOnce(
+        new Error('permission denied'),
+      )
+
+      const status = await mgr.checkDocker()
+      expect(status.available).toBe(false)
+      expect(status.error).toContain('permission denied')
+      expect(status.error).toContain('remote AIO sandbox')
+    })
+
+    it('caches successful Docker check', async () => {
+      const mgr = new AioSandboxManager()
+      const spy = vi.spyOn(mgr as any, 'execHostWithOutput').mockResolvedValue('ok')
+
+      await mgr.checkDocker()
+      await mgr.checkDocker()
+
+      // Only called once due to caching
+      expect(spy).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // start() with Docker detection
+  // -------------------------------------------------------------------------
+
+  describe('start() Docker detection', () => {
+    it('skips Docker check for remote sandbox', async () => {
+      const mgr = new AioSandboxManager({
+        baseUrl: 'http://47.79.85.40:8330',
+        autoStart: true,
+      })
+
+      // Health check fails (sandbox not running)
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+      })
+
+      // start() should NOT call checkDocker for remote host,
+      // it goes straight to docker start (which will fail, but that's fine)
+      const dockerSpy = vi.spyOn(mgr as any, 'execHostWithOutput')
+      const execSpy = vi.spyOn(mgr as any, 'execHost').mockRejectedValue(new Error('fail'))
+
+      await expect(mgr.start()).rejects.toThrow()
+      expect(dockerSpy).not.toHaveBeenCalled()
+    })
+
+    it('throws with install guidance when Docker not found on local', async () => {
+      const mgr = new AioSandboxManager({
+        baseUrl: 'http://localhost:8330',
+        autoStart: true,
+      })
+
+      // Health check fails
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+      })
+
+      // Docker not installed
+      vi.spyOn(mgr as any, 'execHostWithOutput').mockRejectedValueOnce(
+        new Error('spawn docker ENOENT'),
+      )
+
+      await expect(mgr.start()).rejects.toThrow('Docker is not installed')
+    })
+
+    it('throws with daemon guidance when Docker daemon not running', async () => {
+      const mgr = new AioSandboxManager({
+        baseUrl: 'http://localhost:8330',
+        autoStart: true,
+      })
+
+      // Health check fails
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+      })
+
+      // Docker daemon not running
+      vi.spyOn(mgr as any, 'execHostWithOutput').mockRejectedValueOnce(
+        new Error('Cannot connect to the Docker daemon. Is the docker daemon running?'),
+      )
+
+      await expect(mgr.start()).rejects.toThrow('daemon is not running')
     })
   })
 })

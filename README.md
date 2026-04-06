@@ -213,7 +213,7 @@ To disable: set `enabled: false`. Zero side effects.
 ## Testing
 
 ```bash
-# Unit tests (146)
+# Unit tests (158)
 npm test
 
 # Integration tests (requires running AIO sandbox)
@@ -257,7 +257,32 @@ Rules are evaluated by `priority` (ascending). First rule where all matchers pas
 - **Low intrusion** — Plugin-based, does not modify OpenClaw core, disable to revert
 - **One-click ready** — Docker + OMA environment fully auto-provisioned
 - **Fully configurable** — Rules, routes, models all customizable
-- **Well tested** — 146 unit tests + 9 integration tests, verified on real AIO sandbox
+- **Well tested** — 158 unit tests + 9 integration tests, verified on real AIO sandbox
+
+---
+
+## Docker & Remote Sandbox
+
+The plugin auto-detects your Docker environment:
+
+| Situation | What happens |
+|-----------|-------------|
+| Docker installed and running | Container auto-starts, zero manual steps |
+| Docker installed but not running | Clear error: "Start Docker Desktop or run `sudo systemctl start docker`" |
+| Docker not installed | Clear error with install link + remote sandbox alternative |
+
+**No Docker? No problem.** Point to a remote AIO sandbox instead:
+
+```json5
+{
+  aioSandbox: {
+    baseUrl: "http://your-server:8330",   // remote sandbox address
+    autoStart: false                       // skip local Docker
+  }
+}
+```
+
+Simple task routing (Haiku model override) works without Docker — it only needs Docker when routing complex tasks to AIO sandbox.
 
 ---
 
@@ -265,7 +290,7 @@ Rules are evaluated by `priority` (ascending). First rule where all matchers pas
 
 - OpenClaw pluginApi >= 2026.3.24-beta.2
 - Node.js >= 22
-- Docker (required for AIO sandbox)
+- Docker (local AIO sandbox) or a remote AIO sandbox URL
 
 ---
 
@@ -534,11 +559,36 @@ npx tsx src/integration-test.ts [baseUrl]
 
 ---
 
+## Docker 与远程沙箱
+
+插件会自动检测你的 Docker 环境：
+
+| 情况 | 表现 |
+|------|------|
+| Docker 已安装且运行中 | 容器自动启动，零手动操作 |
+| Docker 已安装但未启动 | 提示："启动 Docker Desktop 或运行 `sudo systemctl start docker`" |
+| Docker 未安装 | 提示安装链接 + 远程沙箱替代方案 |
+
+**没有 Docker？没关系。** 指向一台远程 AIO 沙箱即可：
+
+```json5
+{
+  aioSandbox: {
+    baseUrl: "http://your-server:8330",   // 远程沙箱地址
+    autoStart: false                       // 跳过本地 Docker
+  }
+}
+```
+
+简单任务路由（Haiku 模型切换）完全不需要 Docker —— 只有复杂任务路由到 AIO 沙箱时才需要。
+
+---
+
 ## 兼容性
 
 - OpenClaw pluginApi >= 2026.3.24-beta.2
 - Node.js >= 22
-- Docker（AIO 沙箱需要）
+- Docker（本地 AIO 沙箱）或远程 AIO 沙箱地址
 
 ---
 

@@ -47,9 +47,16 @@ export const DEFAULT_AIO_CONFIG: AioSandboxConfig = {
 // Manager
 // ---------------------------------------------------------------------------
 
+export interface DockerStatus {
+  readonly available: boolean
+  readonly error?: string
+}
+
 export class AioSandboxManager {
   private readonly config: AioSandboxConfig
   private _healthy = false
+  private _dockerChecked = false
+  private _dockerAvailable = false
 
   constructor(config: Partial<AioSandboxConfig> = {}) {
     this.config = { ...DEFAULT_AIO_CONFIG, ...config }
@@ -108,6 +115,75 @@ export class AioSandboxManager {
   }
 
   // -------------------------------------------------------------------------
+  // Docker detection
+  // -------------------------------------------------------------------------
+
+  /**
+   * Check whether Docker is installed and the daemon is running.
+   * Result is cached after the first successful check.
+   */
+  async checkDocker(): Promise<DockerStatus> {
+    if (this._dockerChecked && this._dockerAvailable) {
+      return { available: true }
+    }
+
+    try {
+      await this.execHostWithOutput('docker', ['info'])
+      this._dockerChecked = true
+      this._dockerAvailable = true
+      return { available: true }
+    } catch (err) {
+      this._dockerChecked = true
+      this._dockerAvailable = false
+
+      const msg = err instanceof Error ? err.message : String(err)
+
+      // Distinguish: Docker not installed vs daemon not running
+      if (msg.includes('ENOENT') || msg.includes('not found') || msg.includes('No such file')) {
+        return {
+          available: false,
+          error: [
+            'Docker is not installed.',
+            'Install Docker Desktop: https://docs.docker.com/get-docker/',
+            'Or configure a remote AIO sandbox with: aioSandbox.baseUrl + autoStart: false',
+          ].join('\n'),
+        }
+      }
+
+      if (msg.includes('Cannot connect') || msg.includes('Is the docker daemon running')) {
+        return {
+          available: false,
+          error: [
+            'Docker is installed but the daemon is not running.',
+            'Start Docker Desktop or run: sudo systemctl start docker',
+            'Or configure a remote AIO sandbox with: aioSandbox.baseUrl + autoStart: false',
+          ].join('\n'),
+        }
+      }
+
+      return {
+        available: false,
+        error: [
+          `Docker check failed: ${msg}`,
+          'Or configure a remote AIO sandbox with: aioSandbox.baseUrl + autoStart: false',
+        ].join('\n'),
+      }
+    }
+  }
+
+  /**
+   * Whether the local baseUrl points to localhost / 127.0.0.1.
+   */
+  get isLocalSandbox(): boolean {
+    try {
+      const url = new URL(this.config.baseUrl)
+      return url.hostname === 'localhost' || url.hostname === '127.0.0.1'
+    } catch {
+      return true
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // Container lifecycle
   // -------------------------------------------------------------------------
 
@@ -116,12 +192,21 @@ export class AioSandboxManager {
    * Returns true if the container is running after this call.
    */
   async start(): Promise<boolean> {
-    // Check if already running
+    // Check if already running (works for both local and remote)
     const health = await this.checkHealth()
     if (health.healthy) return true
 
     if (!this.config.autoStart) {
       return false
+    }
+
+    // For local sandbox, verify Docker is available before attempting anything
+    if (this.isLocalSandbox) {
+      const docker = await this.checkDocker()
+      if (!docker.available) {
+        this._healthy = false
+        throw new Error(docker.error!)
+      }
     }
 
     // Try to start existing stopped container first
@@ -272,6 +357,21 @@ export class AioSandboxManager {
         execFile(command, args, { timeout: 30_000 }, (error: Error | null) => {
           if (error) reject(error)
           else resolve()
+        })
+      }).catch(reject)
+    })
+  }
+
+  /**
+   * Execute a command on the host and capture stdout/stderr.
+   * Used for diagnostic commands like `docker info`.
+   */
+  private execHostWithOutput(command: string, args: string[]): Promise<string> {
+    return new Promise((resolve, reject) => {
+      import('node:child_process').then(({ execFile }) => {
+        execFile(command, args, { timeout: 15_000 }, (error: Error | null, stdout: string) => {
+          if (error) reject(error)
+          else resolve(stdout)
         })
       }).catch(reject)
     })

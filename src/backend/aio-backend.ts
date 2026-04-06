@@ -90,16 +90,26 @@ export class AioOmaRuntime implements AcpRuntime {
 
   /**
    * Probe availability: ensure sandbox is running and OMA is installed.
+   * Provides clear diagnostics when Docker is missing or not running.
    */
   async probeAvailability(): Promise<void> {
     // 1. Check sandbox health
     const health = await this.sandbox.checkHealth()
     if (!health.healthy) {
-      // Try to start sandbox
-      const started = await this.sandbox.start()
-      if (!started) {
+      // Try to start sandbox — this will check Docker availability first
+      try {
+        const started = await this.sandbox.start()
+        if (!started) {
+          this._healthy = false
+          throw new Error(
+            'AIO sandbox is not available and auto-start is disabled.\n' +
+            'Either start the sandbox manually or set autoStart: true in config.',
+          )
+        }
+      } catch (err) {
         this._healthy = false
-        throw new Error('AIO sandbox is not available and auto-start failed')
+        // Re-throw with the original message (which includes Docker guidance)
+        throw err
       }
     }
 
@@ -134,7 +144,11 @@ export class AioOmaRuntime implements AcpRuntime {
 
   async *runTurn(input: AcpRuntimeTurnInput): AsyncIterable<AcpRuntimeEvent> {
     if (!this._healthy) {
-      yield { type: 'error', message: 'AIO backend is not healthy', code: 'BACKEND_UNHEALTHY' }
+      yield {
+        type: 'error',
+        message: 'AIO backend is not healthy. Run probeAvailability() first or check Docker status.',
+        code: 'BACKEND_UNHEALTHY',
+      }
       return
     }
 
