@@ -1,5 +1,274 @@
 # OpenClaw Intent Routing
 
+**Stop using one brain for every task.**
+
+---
+
+## The Problem
+
+The OpenClaw ecosystem already has a wealth of harnesses — Claude Code, Codex, Aider, open-multi-agent, ACPX… each excelling at different things.
+
+But OpenClaw currently operates as **single-thread + single-harness path**: every message takes the same route, goes to the same harness, processed by the same model.
+
+This leads to three direct consequences:
+
+| Scenario | What happens | What should happen |
+|----------|-------------|-------------------|
+| User says "Hello" | Opus processes it, seconds of latency, heavy token cost | Haiku responds instantly, near-zero cost |
+| User says "Translate this" | Full harness pipeline | Fast model returns directly |
+| User says "Design the schema, then build the API, then write tests" | Single agent, serial execution, limited quality | Multi-agent parallel collaboration |
+
+**Simple tasks are over-processed** — wasting tokens. **Complex tasks are under-served** — quality suffers. **Multiple harnesses sit idle** — capabilities wasted.
+
+The root cause: **no dispatch layer.**
+
+---
+
+## What This Plugin Does
+
+It adds a dispatch layer to OpenClaw. It solves two things:
+
+### 1. One-Click Multi-Harness Integration
+
+Different harnesses have different runtime requirements — some need Node.js, some depend on Docker, some communicate via MCP. Manually setting up the integration (pulling images, configuring ports, installing dependencies, registering backends) is a high barrier.
+
+This plugin has built-in environment management:
+
+```
+Install plugin → Enable → On first complex task, auto-completes:
+
+  Docker image pull → Container start → Health check →
+  open-multi-agent clone → Dependency install → Build →
+  ACP Backend registration → Ready
+```
+
+- **Docker container self-management** — Auto-pulls AIO sandbox image, starts container, maps ports, continuous health monitoring
+- **open-multi-agent self-deployment** — Auto-clones repo, detects package manager, installs dependencies, builds
+- **ACP Backend self-registration** — Registers as a standard ACP runtime backend, seamless integration with existing system
+
+No manual image pulls. No port configuration. No startup scripts.
+
+### 2. Automatic Routing by Task Complexity
+
+Once the environment is ready, before each message reaches a harness, the plugin uses pure local rules (**zero LLM calls, zero latency, zero extra tokens**) to classify and route:
+
+```
+User message → Intent classification (local < 1ms) → Routing decision
+                                                      ├─ Simple → Fast model (Haiku)
+                                                      ├─ Complex → AIO sandbox / Multi-agent
+                                                      └─ Default → Original binding route (unchanged)
+```
+
+---
+
+## Classification Rules
+
+16 built-in rules covering English and Chinese, evaluated by priority:
+
+**Complex task signals (priority 10):**
+
+| Rule | Example matches |
+|------|----------------|
+| Sequential execution | "First do X, then do Y" |
+| Numbered steps | "Step 1: ..." / "Phase 1: ..." |
+| Stage planning | "Phase 1: design" / "Stage 2: implement" |
+| Numbered lists | "1. Do X\n2. Do Y" |
+| Collaboration language | "collaborate" / "coordinate" / "work together" |
+| Parallel execution | "in parallel" / "concurrently" / "at the same time" |
+| Multiple deliverables | "build X and then implement Y" |
+| Chinese sequence markers | "first...then...finally..." patterns |
+
+**Long message rule (priority 15):** Over 500 characters
+
+**Simple task rule (priority 20):** Under 200 characters with no complexity signals
+
+The rule engine supports four matcher types: `regex`, `keyword`, `length`, `negation` — freely composable and extensible.
+
+---
+
+## Install
+
+```bash
+git clone https://github.com/EchoOfZion/openclaw-intent-routing.git
+cd openclaw-intent-routing
+npm install
+npm run build
+npm test
+```
+
+---
+
+## Configuration
+
+Add to `~/.openclaw/config.json5`:
+
+```json5
+{
+  intentRouting: {
+    enabled: true,
+
+    // Routing rules
+    routes: {
+      "complex": {
+        agentId: "orchestrator",
+        executionMode: "acp",
+        acpBackend: "aio-oma"
+      },
+      "simple": {
+        modelOverride: "claude-3-5-haiku-20241022"
+      }
+    },
+
+    // AIO sandbox (optional, defaults shown)
+    aioSandbox: {
+      baseUrl: "http://localhost:8330",
+      autoStart: true,
+      containerName: "openclaw-aio-sandbox"
+    },
+
+    // open-multi-agent (optional)
+    openMultiAgent: {
+      repoUrl: "https://github.com/JackChen-me/open-multi-agent.git",
+      branch: "main"
+    }
+  }
+}
+```
+
+To disable: set `enabled: false`. Zero side effects.
+
+---
+
+## Architecture
+
+```
+┌───────────────┐
+│  User Message  │
+└───────┬───────┘
+        │
+        ▼
+┌────────────────────────────┐
+│  Intent Classifier (local)  │  ← Zero LLM calls
+│  16 built-in + custom rules │
+└───────┬────────────────────┘
+        │
+        ├─ simple ──→ Model override (Haiku) ──→ Fast response
+        │
+        ├─ complex ─→ AIO Sandbox ──→ open-multi-agent ──→ Multi-agent collaboration
+        │                 │
+        │                 ├─ Docker auto-management
+        │                 ├─ OMA auto-deployment
+        │                 └─ ACP Backend registration
+        │
+        └─ default ──→ Original binding route (unchanged)
+```
+
+**Modules:**
+
+| Module | Responsibility |
+|--------|---------------|
+| `intent-classifier` | Message classification engine, pure sync, no side effects |
+| `intent-router` | Classification → routing decision mapping |
+| `aio-manager` | AIO sandbox Docker lifecycle management |
+| `oma-installer` | open-multi-agent auto-install and build |
+| `aio-backend` | ACP runtime backend implementation |
+| `index` | Plugin entry point, hook registration |
+
+---
+
+## Project Structure
+
+```
+├── openclaw.plugin.json          # Plugin manifest + config schema
+├── package.json
+├── tsconfig.json
+├── skills/
+│   └── intent-router/
+│       └── SKILL.md              # Agent instructions
+└── src/
+    ├── index.ts                  # Plugin entry
+    ├── index.test.ts
+    ├── integration-test.ts       # End-to-end integration tests
+    ├── routing/
+    │   ├── intent-classifier.ts  # Classification engine (16 rules)
+    │   ├── intent-classifier.test.ts
+    │   ├── intent-router.ts      # Route mapping
+    │   └── intent-router.test.ts
+    ├── sandbox/
+    │   ├── aio-manager.ts        # AIO sandbox management
+    │   ├── aio-manager.test.ts
+    │   ├── oma-installer.ts      # OMA auto-installer
+    │   └── oma-installer.test.ts
+    └── backend/
+        ├── aio-backend.ts        # ACP runtime backend
+        └── aio-backend.test.ts
+```
+
+---
+
+## Testing
+
+```bash
+# Unit tests (146)
+npm test
+
+# Integration tests (requires running AIO sandbox)
+npx tsx src/integration-test.ts [baseUrl]
+```
+
+---
+
+## Custom Rules
+
+Add custom classification rules via config:
+
+```json5
+{
+  intentRouting: {
+    enabled: true,
+    routing: {
+      customRules: [
+        {
+          id: "custom:deploy",
+          category: "complex",
+          priority: 5,
+          matchers: [
+            { type: "keyword", keywords: ["deploy", "rollback", "migration"] }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+Rules are evaluated by `priority` (ascending). First rule where all matchers pass wins.
+
+---
+
+## Key Features
+
+- **Zero LLM calls** — Classification is entirely local, no token cost, no added latency
+- **Lightweight** — < 2500 lines of code (including tests), no runtime dependencies
+- **Low intrusion** — Plugin-based, does not modify OpenClaw core, disable to revert
+- **One-click ready** — Docker + OMA environment fully auto-provisioned
+- **Fully configurable** — Rules, routes, models all customizable
+- **Well tested** — 146 unit tests + 9 integration tests, verified on real AIO sandbox
+
+---
+
+## Compatibility
+
+- OpenClaw pluginApi >= 2026.3.24-beta.2
+- Node.js >= 22
+- Docker (required for AIO sandbox)
+
+---
+
+---
+
+# OpenClaw Intent Routing
+
 **让你的 Agent 不再用同一个脑子做所有事**
 
 ---
@@ -71,7 +340,7 @@ OpenClaw 生态已经有了大量优秀的 Harness —— Claude Code、Codex、
 |------|---------|
 | 顺序执行 | "先做 X，再做 Y" / "First..., then..." |
 | 编号步骤 | "Step 1: ..." / "第一步：..." |
-| 阶段/阶段规划 | "Phase 1: 设计" / "Stage 2: 实现" |
+| 阶段规划 | "Phase 1: 设计" / "Stage 2: 实现" |
 | 编号列表 | "1. 做 X\n2. 做 Y" |
 | 协作语言 | "collaborate" / "coordinate" / "work together" |
 | 并行执行 | "in parallel" / "concurrently" / "同时进行" |
@@ -89,17 +358,10 @@ OpenClaw 生态已经有了大量优秀的 Harness —— Claude Code、Codex、
 ## 安装
 
 ```bash
-# 克隆
 git clone https://github.com/EchoOfZion/openclaw-intent-routing.git
 cd openclaw-intent-routing
-
-# 安装依赖
 npm install
-
-# 构建
 npm run build
-
-# 测试
 npm test
 ```
 
