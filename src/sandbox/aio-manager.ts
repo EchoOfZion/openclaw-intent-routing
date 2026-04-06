@@ -138,6 +138,15 @@ export class AioSandboxManager {
 
       const msg = err instanceof Error ? err.message : String(err)
 
+      const remoteHint = [
+        '',
+        'Alternative: use a remote AIO sandbox (no Docker needed):',
+        '  aioSandbox: {',
+        '    baseUrl: "http://<your-server-ip>:8330",',
+        '    autoStart: false',
+        '  }',
+      ].join('\n')
+
       // Distinguish: Docker not installed vs daemon not running
       if (msg.includes('ENOENT') || msg.includes('not found') || msg.includes('No such file')) {
         return {
@@ -145,7 +154,7 @@ export class AioSandboxManager {
           error: [
             'Docker is not installed.',
             'Install Docker Desktop: https://docs.docker.com/get-docker/',
-            'Or configure a remote AIO sandbox with: aioSandbox.baseUrl + autoStart: false',
+            remoteHint,
           ].join('\n'),
         }
       }
@@ -156,7 +165,7 @@ export class AioSandboxManager {
           error: [
             'Docker is installed but the daemon is not running.',
             'Start Docker Desktop or run: sudo systemctl start docker',
-            'Or configure a remote AIO sandbox with: aioSandbox.baseUrl + autoStart: false',
+            remoteHint,
           ].join('\n'),
         }
       }
@@ -165,7 +174,7 @@ export class AioSandboxManager {
         available: false,
         error: [
           `Docker check failed: ${msg}`,
-          'Or configure a remote AIO sandbox with: aioSandbox.baseUrl + autoStart: false',
+          remoteHint,
         ].join('\n'),
       }
     }

@@ -271,7 +271,7 @@ describe('AioSandboxManager', () => {
       expect(status.available).toBe(false)
       expect(status.error).toContain('Docker is not installed')
       expect(status.error).toContain('https://docs.docker.com/get-docker/')
-      expect(status.error).toContain('remote AIO sandbox')
+      expect(status.error).toContain('no Docker needed')
     })
 
     it('detects Docker daemon not running', async () => {
@@ -284,7 +284,7 @@ describe('AioSandboxManager', () => {
       expect(status.available).toBe(false)
       expect(status.error).toContain('daemon is not running')
       expect(status.error).toContain('sudo systemctl start docker')
-      expect(status.error).toContain('remote AIO sandbox')
+      expect(status.error).toContain('no Docker needed')
     })
 
     it('handles unknown Docker errors', async () => {
@@ -296,7 +296,7 @@ describe('AioSandboxManager', () => {
       const status = await mgr.checkDocker()
       expect(status.available).toBe(false)
       expect(status.error).toContain('permission denied')
-      expect(status.error).toContain('remote AIO sandbox')
+      expect(status.error).toContain('no Docker needed')
     })
 
     it('caches successful Docker check', async () => {
