@@ -1,0 +1,16 @@
+{
+  "name": "@openclaw/intent-routing",
+  "version": "0.1.0",
+  "description": "Intent-based automatic routing for OpenClaw — classifies message complexity and routes to appropriate agents/execution modes",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
